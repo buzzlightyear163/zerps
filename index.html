@@ -1,0 +1,1409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070a">
+<meta name="description" content="Hash for zeros in your browser. Every proof is checked in one hash, and the deepest hash of each round takes a bonus.">
+<meta property="og:title" content="ZEROS">
+<meta property="og:description" content="Hash for zeros. The deepest one wins.">
+<meta property="og:type" content="website">
+<!-- once the domain is live, make this absolute: https://yourdomain/og.png -->
+<meta property="og:image" content="og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ZEROS">
+<meta name="twitter:description" content="Hash for zeros. The deepest one wins.">
+<meta name="twitter:image" content="og.png">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<title>ZEROS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap">
+<style>
+/* layout: a sticky WebGL stage (voxel shaft, camera descends as you scroll) with copy beats over it, then the live rig console, rules, token, wordmark footer */
+:root{
+  --ink:#05070a; --panel:#0a0e13; --raise:#0f151b; --line:#151d25; --line2:#22303c;
+  --fg:#d5dfe5; --mid:#95a3ad; --dim:#64737e; --faint:#384651; --bright:#f2f7fa;
+  --ice:#8fdcff; --ice-dim:rgba(143,220,255,.10); --ice-glow:rgba(143,220,255,.55);
+  --ok:#5fe3a1; --warn:#ffc069; --bad:#ff7d7d;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --serif:"Instrument Serif",ui-serif,Georgia,"Times New Roman",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--ink);color:var(--fg);font:400 15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:clip}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.06;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid var(--ice);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1200px;margin-inline:auto;padding-inline:clamp(16px,4vw,36px)}
+h1,h2,h3{text-wrap:balance}
+em.s{font:400 italic 1.1em/1 var(--serif);letter-spacing:-.01em;color:var(--ice);padding-right:.04em}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:rgba(5,7,10,.62);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid rgba(255,255,255,.05)}
+.bar{display:flex;align-items:center;gap:20px;height:60px}
+.mark{display:inline-flex;align-items:center;gap:9px;font:500 17px/1 var(--mono);letter-spacing:.02em;color:var(--bright)}
+.mark svg{color:var(--ice);flex:none}
+.nav{display:flex;gap:26px;margin-left:16px;font:400 13px/1 var(--mono);color:var(--dim)}
+.nav a{transition:color .2s}
+.nav a:hover{color:var(--fg)}
+.bar-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.xlink{display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--line2);border-radius:999px;color:var(--fg);transition:border-color .2s}
+.xlink:hover{border-color:var(--dim)}
+@media (max-width:760px){.nav{display:none}}
+
+/* buttons, chips */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 24px;border-radius:999px;font:500 14px/1 var(--sans);white-space:nowrap;border:1px solid transparent;transition:background .2s,border-color .2s,color .2s,box-shadow .3s,transform .1s}
+.btn:active{transform:translateY(1px)}
+.btn.sm{height:36px;padding:0 16px;font-size:13px}
+.btn.primary{background:var(--bright);color:var(--ink);box-shadow:0 0 0 0 rgba(143,220,255,0),0 8px 30px -10px rgba(143,220,255,.45)}
+.btn.primary:hover{background:#fff;box-shadow:0 0 0 4px rgba(143,220,255,.14),0 10px 40px -10px rgba(143,220,255,.6)}
+.btn.ghost{border-color:var(--line2);color:var(--fg);background:rgba(5,7,10,.4)}
+.btn.ghost:hover{border-color:var(--dim)}
+.btn.full{width:100%}
+.btn .dot{background:var(--ink);opacity:.3}
+.btn.on{background:rgba(5,7,10,.5);color:var(--bright);border-color:rgba(143,220,255,.45);box-shadow:0 0 0 4px rgba(143,220,255,.08)}
+.btn.on .dot{background:var(--ok);opacity:1;animation:ping 1.8s infinite}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 10.5px/1 var(--mono);text-transform:uppercase;letter-spacing:.1em;padding:5px 8px;border:1px solid var(--line2);border-radius:999px;color:var(--dim);white-space:nowrap}
+.chip.warn{color:var(--warn);border-color:rgba(255,192,105,.32)}
+.chip.ok{color:var(--ok);border-color:rgba(95,227,161,.32)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.dot.live{background:var(--ok);animation:ping 1.8s infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(95,227,161,.55)}70%{box-shadow:0 0 0 7px rgba(95,227,161,0)}100%{box-shadow:0 0 0 0 rgba(95,227,161,0)}}
+.k{font:400 11px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
+.v{font:500 clamp(20px,2.2vw,27px)/1.1 var(--mono);color:var(--bright);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s{font:400 12px/1.3 var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fine{font:400 12.5px/1.5 var(--mono);color:var(--dim);margin:16px 0 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.fine.err{color:var(--bad)}
+
+/* stage */
+.stage{position:relative}
+.stage-sticky{position:sticky;top:0;height:100vh;height:100svh;margin-bottom:-100vh;margin-bottom:-100svh;overflow:hidden;z-index:0;background:
+  radial-gradient(38% 60% at 70% 72%,rgba(143,220,255,.07),rgba(143,220,255,0) 70%),
+  radial-gradient(60% 50% at 70% 0%,rgba(120,160,190,.06),rgba(120,160,190,0) 70%),var(--ink)}
+.stage-sticky::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(143,220,255,.07) 1px,transparent 1.2px) 0 0/26px 26px;
+  -webkit-mask-image:radial-gradient(70% 70% at 70% 45%,#000 0%,transparent 75%);mask-image:radial-gradient(70% 70% at 70% 45%,#000 0%,transparent 75%)}
+@media (max-width:820px){.stage-sticky{background:radial-gradient(70% 50% at 50% 70%,rgba(143,220,255,.07),rgba(143,220,255,0) 70%),var(--ink)}}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage-fb{position:absolute;right:8%;top:50%;transform:translateY(-50%);height:84%;width:auto;max-width:none;mix-blend-mode:lighten;opacity:.95}
+.marks{position:absolute;inset:0;pointer-events:none}
+.marks svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.mk{position:absolute;left:0;top:0;display:flex;align-items:center;gap:10px;font:400 11.5px/1 var(--mono);color:var(--dim);white-space:nowrap;letter-spacing:.04em;will-change:transform}
+.mk i{display:block;width:16px;height:1px;background:rgba(143,220,255,.3)}
+.mk b{font-weight:500;color:var(--mid)}
+.mk.pl,.mk.pl b{color:var(--ice)}
+.mk.pl i{background:var(--ice)}
+.mk.rec{color:var(--mid)}
+.mk.rec b{color:var(--bright)}
+.mk.rec i{width:22px;background:var(--ice);box-shadow:0 0 8px var(--ice)}
+.scrim{position:absolute;inset:0;pointer-events:none;background:
+  linear-gradient(90deg,rgba(5,7,10,.94) 0%,rgba(5,7,10,.72) 30%,rgba(5,7,10,0) 54%),
+  linear-gradient(180deg,rgba(5,7,10,.5) 0%,rgba(5,7,10,0) 16%,rgba(5,7,10,0) 82%,rgba(5,7,10,.85) 100%)}
+.stage-flow{position:relative;z-index:2}
+.beat{min-height:94vh;display:flex;align-items:center;padding-block:72px}
+.beat .copy{max-width:520px}
+.beat.hero .copy{max-width:680px}
+.beat.hero{min-height:calc(100svh - 60px);padding-block:40px 96px;position:relative}
+.beat.last{min-height:100vh}
+.eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 24px;font:400 12.5px/1.2 var(--mono);color:var(--dim)}
+.eyebrow .sep{color:var(--faint)}
+.eyebrow #eyeNet{color:var(--fg)}
+h1{font:600 clamp(40px,6vw,76px)/.98 var(--sans);letter-spacing:-.045em;color:var(--bright);margin:0 0 24px}
+h1 em{font:400 italic 1.12em/1 var(--serif);letter-spacing:-.01em;color:var(--ice);padding-right:.04em}
+.lede{font-size:clamp(15px,1.45vw,17px);color:var(--mid);max-width:33em;margin:0 0 30px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+#mineBtn{min-width:180px}
+.threads{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line2);border-radius:999px;font:400 12px/1 var(--mono);background:rgba(5,7,10,.5)}
+.threads .lbl{color:var(--dim);padding:0 8px 0 10px}
+.threads button{min-width:34px;height:34px;padding:0 9px;border-radius:999px;color:var(--dim);transition:background .2s,color .2s}
+.threads button[aria-pressed="true"]{background:var(--raise);color:var(--bright)}
+.cue{position:absolute;left:0;bottom:28px;display:flex;align-items:center;gap:12px;font:400 11.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.cue i{display:block;width:1px;height:34px;background:linear-gradient(var(--ice),transparent);animation:cue 2.2s ease-in-out infinite;transform-origin:top}
+@keyframes cue{0%{transform:scaleY(0);opacity:0}30%{opacity:1}100%{transform:scaleY(1);opacity:0}}
+.kick{display:flex;align-items:center;gap:10px;margin:0 0 18px;font:500 12.5px/1 var(--mono);letter-spacing:.06em;color:var(--ice)}
+.kick i{display:block;width:22px;height:1px;background:var(--ice)}
+.kick em{font-style:normal;color:var(--dim)}
+.beat h2{font:600 clamp(32px,4.4vw,56px)/1.02 var(--sans);letter-spacing:-.04em;color:var(--bright);margin:0 0 18px}
+.beat h2 em{font:400 italic 1.1em/1 var(--serif);color:var(--ice);letter-spacing:-.01em}
+.beat .txt{color:var(--mid);font-size:clamp(15px,1.4vw,17px);margin:0;max-width:30em}
+.beat .formula{display:inline-block;margin-top:22px;font:500 15px/1 var(--mono);color:var(--fg);padding:12px 14px;border:1px solid rgba(143,220,255,.18);border-radius:10px;background:rgba(10,16,22,.6)}
+.beat .formula sup{font-size:.72em;color:var(--ice)}
+.beat .acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+@media (max-width:820px){
+  #gl,.stage-fb{opacity:.42}
+  .stage-fb{right:50%;transform:translate(50%,-50%);height:76%}
+  .marks{display:none}
+  .scrim{background:linear-gradient(180deg,rgba(5,7,10,.35),rgba(5,7,10,.65))}
+  .beat{min-height:80vh}
+}
+
+/* sections */
+.sec{padding-block:clamp(72px,10vw,128px) 0;position:relative;z-index:3;background:var(--ink)}
+.sec-tight{padding-top:clamp(40px,5vw,64px)}
+.sec-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:14px 40px;margin-bottom:28px}
+.sec-head .kick{margin-bottom:14px}
+.sec-head h2{font:600 clamp(32px,4.4vw,54px)/1.02 var(--sans);letter-spacing:-.04em;color:var(--bright);margin:0}
+.sec-head h2 em{font:400 italic 1.1em/1 var(--serif);color:var(--ice);letter-spacing:-.01em}
+.sec-head p{margin:0;max-width:32em;color:var(--mid);font-size:15px}
+.panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 120px),var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.phead h3{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--fg);margin:0}
+.block{margin-top:16px}
+
+/* record + rig */
+.rigrow{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:16px;align-items:stretch}
+@media (max-width:960px){.rigrow{grid-template-columns:minmax(0,1fr)}}
+.slab-card{overflow:hidden;padding:20px 20px 0;display:flex;flex-direction:column}
+.slab-card::before{content:"";position:absolute;inset:0;background:radial-gradient(110% 80% at 0% 0%,rgba(143,220,255,.08),transparent 60%);pointer-events:none}
+.slab-top,.slab-foot{position:relative;display:flex;justify-content:space-between;align-items:baseline;gap:12px;font:400 12px/1.35 var(--mono);color:var(--dim)}
+.slab-top b,.slab-foot b{color:var(--fg);font-weight:500}
+.slab-foot b.you{color:var(--ice)}
+.slab{position:relative;flex:1;display:grid;align-content:center;gap:4px;margin:22px 0;font:500 clamp(18px,2.7vw,32px)/1.2 var(--mono);color:#34414b;font-variant-numeric:tabular-nums}
+.slab .row{display:flex;justify-content:space-between}
+.slab .z{color:var(--bright);text-shadow:0 0 22px var(--ice-glow),0 0 2px var(--ice)}
+.slab .f{color:var(--ice)}
+.slab .c{color:#46545f}
+.roundbar{position:relative;height:2px;margin:16px -20px 0;background:var(--line)}
+.roundbar i{display:block;height:100%;width:0;background:var(--ice);box-shadow:0 0 10px var(--ice);transition:width .25s linear}
+.rig{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.tile{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0) 80px),var(--panel);padding:18px 20px;display:grid;align-content:space-between;gap:10px;min-width:0;min-height:128px}
+.tile .v{font-size:clamp(22px,2.4vw,30px)}
+
+/* chart */
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;list-style:none;margin:0;padding:0;font:400 11.5px/1 var(--mono);color:var(--dim)}
+.legend li{display:flex;align-items:center;gap:7px}
+.lg{display:inline-block;width:7px;height:7px;border-radius:50%}
+.lg.you{background:var(--ice);opacity:.55}
+.lg.proof{background:var(--bright);box-shadow:0 0 6px var(--ice)}
+.lg.peer{background:#4f5f6b}
+.lg.diff{width:14px;height:0;border-top:1px dashed var(--ice);border-radius:0}
+.cv{position:relative;height:clamp(220px,28vw,320px);margin-inline:-4px}
+.cv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* network */
+.net{padding:0;overflow:hidden}
+.net-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:15px 20px;border-bottom:1px solid var(--line);font:500 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
+.net-status{display:flex;align-items:center;gap:9px;color:var(--dim);letter-spacing:.1em;font-weight:400}
+.net-status b{color:var(--fg);font-weight:500}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.steps li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;padding:13px 16px;border-right:1px solid var(--line);font:400 12px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);transition:color .35s,background .35s}
+.steps li:last-child{border-right:0}
+.steps .n{color:var(--faint);transition:color .35s}
+.steps li.live{color:var(--fg)}
+.steps li.on{color:var(--ice);background:var(--ice-dim)}
+.steps li.on .n{color:var(--ice)}
+.steps li.locked{color:var(--faint)}
+.steps li em{font-style:normal;font-size:9.5px;letter-spacing:.08em;border:1px solid var(--line2);border-radius:4px;padding:2px 5px;color:var(--dim)}
+@media (max-width:760px){
+  .steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .steps li:nth-child(3){border-right:0}
+  .steps li:nth-child(-n+3){border-bottom:1px solid var(--line)}
+}
+.nstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.nstats>div{display:grid;gap:8px;padding:15px 20px;border-right:1px solid var(--line);min-width:0}
+.nstats>div:last-child{border-right:0}
+@media (max-width:700px){
+  .nstats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nstats>div:nth-child(2){border-right:0}
+  .nstats>div:nth-child(-n+2){border-bottom:1px solid var(--line)}
+}
+.stream{border-top:1px solid var(--line);padding:12px 20px;height:206px;overflow:hidden;font:400 12px/20px var(--mono);color:var(--faint);
+  -webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
+.ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ln .d{display:inline-block;width:4.5ch;color:var(--dim)}
+.ln .w{display:inline-block;width:9ch;color:var(--dim)}
+.ln b{color:var(--fg);font-weight:500}
+.ln.proof b,.ln.proof .d{color:var(--ice)}
+.ln.sim{opacity:.7}
+.note{margin:0;padding:12px 20px 16px;border-top:1px solid var(--line);font:400 12px/1.5 var(--mono);color:var(--dim)}
+@media (max-width:560px){.ln .w{display:none}}
+
+/* wallet, treasury, ledger */
+.duo{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:960px){.duo{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:16px;min-width:0}
+.addr{font:500 15px/1.4 var(--mono);color:var(--bright);margin:0 0 14px;word-break:break-all}
+.addr.none{color:var(--dim)}
+.kv{margin:0 0 16px;display:grid}
+.kv>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:13.5px}
+.kv dt{color:var(--dim)}
+.kv dd{margin:0;font-family:var(--mono);color:var(--fg);text-align:right;font-variant-numeric:tabular-nums}
+.panel .fine{margin-top:12px}
+#addrForm{display:grid;gap:8px;margin-top:12px}
+#addrForm label{font:400 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
+.inrow{display:flex;gap:8px}
+.inrow input{flex:1;min-width:0;height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line2);background:var(--ink);color:var(--fg);font:400 13px/1 var(--mono)}
+.inrow input:focus{outline:none;border-color:var(--ice)}
+.tabs{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--ink)}
+.tabs button{font:400 12px/1 var(--mono);padding:8px 12px;border-radius:999px;color:var(--dim);transition:background .2s,color .2s}
+.tabs button[aria-selected="true"]{background:var(--raise);color:var(--bright)}
+.rows{list-style:none;margin:0;padding:0;max-height:560px;overflow:auto;font:400 12.5px/1.35 var(--mono);font-variant-numeric:tabular-nums}
+.rows li{display:grid;align-items:center;gap:12px;padding:10px 2px;border-top:1px solid var(--line);min-width:0}
+.rows li>*{min-width:0}
+.rows .empty{display:block;padding:28px 2px;color:var(--dim);font-family:var(--sans);font-size:14px}
+.lrow{grid-template-columns:40px minmax(0,1fr) 84px 72px 34px}
+.lrow .d{color:var(--dim)}
+.lrow .hx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--faint)}
+.lrow .hx b{color:var(--fg);font-weight:500}
+.lrow .who{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .st{font-size:11px;letter-spacing:.05em}
+.lrow .ago{color:var(--faint);text-align:right}
+.lrow.you .d,.lrow.you .hx b,.lrow.you .who{color:var(--ice)}
+.st.ok{color:var(--ok)} .st.wait{color:var(--warn)} .st.bad{color:var(--bad)}
+.lead{grid-template-columns:24px minmax(0,1fr) 64px 48px 110px}
+.lead .rk{color:var(--faint)}
+.lead .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lead .pr,.lead .bd{color:var(--dim);text-align:right}
+.lead.you .nm{color:var(--ice)}
+.share{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--fg)}
+.share i{display:block;height:4px;border-radius:2px;background:var(--line2);overflow:hidden}
+.share i span{display:block;height:100%;background:var(--dim)}
+.lead.you .share i span{background:var(--ice)}
+.rnd{grid-template-columns:72px minmax(0,1fr) auto}
+.rnd .rn{color:var(--dim)}
+.rnd .rec{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rnd .rec.you{color:var(--ice)}
+.rnd .ys{color:var(--dim);text-align:right}
+@media (max-width:560px){
+  .lrow{grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"d hx hx" "d who st";row-gap:4px}
+  .lrow .d{grid-area:d} .lrow .hx{grid-area:hx} .lrow .who{grid-area:who} .lrow .st{grid-area:st;text-align:right}
+  .lrow .ago{display:none}
+  .lead{grid-template-columns:20px minmax(0,1fr) 40px 96px}
+  .lead .pr{display:none}
+  .rnd{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"rn ys" "rec rec";row-gap:4px}
+  .rnd .rn{grid-area:rn} .rnd .ys{grid-area:ys} .rnd .rec{grid-area:rec}
+}
+
+/* rules */
+.rules{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.rules li{background:var(--panel);padding:24px 22px 26px;display:grid;align-content:start;gap:8px;transition:background .3s}
+.rules li:hover{background:#0c1117}
+.rules .rn{font:500 11px/1 var(--mono);color:var(--ice);letter-spacing:.1em}
+.rules h3{font:500 17px/1.25 var(--sans);letter-spacing:-.01em;color:var(--bright);margin:6px 0 0}
+.rules p{margin:0;color:var(--mid);font-size:14px;max-width:36em}
+.rules code{font:400 12.5px/1 var(--mono);color:var(--fg);background:var(--raise);border:1px solid var(--line2);border-radius:5px;padding:2px 5px}
+@media (max-width:920px){.rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.rules{grid-template-columns:minmax(0,1fr)}}
+
+/* token + footer */
+.token{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px 24px;padding:24px}
+.token .tk{display:grid;gap:6px;min-width:0;flex:1 1 300px}
+.token .tick{font:600 22px/1 var(--sans);letter-spacing:-.02em;color:var(--bright)}
+.ca{font:400 14px/1.4 var(--mono);color:var(--fg);margin:0;word-break:break-all}
+.ca.tba{color:var(--dim)}
+.token .fine{margin:0}
+.token-act{display:flex;flex-wrap:wrap;gap:10px}
+.foot{position:relative;z-index:3;background:var(--ink);margin-top:clamp(72px,10vw,120px);border-top:1px solid var(--line);overflow:hidden}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px 28px;padding-block:26px;font:400 12.5px/1.4 var(--mono);color:var(--dim)}
+.foot-row nav{display:flex;gap:20px}
+.foot-row nav a:hover{color:var(--fg)}
+.bigmark{font:600 clamp(110px,27vw,400px)/.78 var(--sans);letter-spacing:-.07em;text-align:center;margin:8px 0 -.12em;user-select:none;
+  background:linear-gradient(180deg,#1a242d 0%,#0b1015 70%,rgba(5,7,10,0) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bigmark span{background:linear-gradient(180deg,var(--ice) 0%,rgba(143,220,255,.15) 75%,rgba(143,220,255,0) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* dock */
+.dock{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:45;display:flex;align-items:center;gap:14px;padding:6px 6px 6px 18px;border-radius:999px;
+  background:rgba(10,14,19,.78);-webkit-backdrop-filter:saturate(1.4) blur(16px);backdrop-filter:saturate(1.4) blur(16px);border:1px solid rgba(143,220,255,.16);
+  box-shadow:0 20px 60px -20px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.05);font:400 12.5px/1 var(--mono);color:var(--mid);
+  transform:translate(-50%,160%);transition:transform .45s cubic-bezier(.2,.8,.2,1);max-width:calc(100vw - 32px)}
+.dock.show{transform:translate(-50%,0)}
+.dock .sep{width:1px;height:14px;background:var(--line2);flex:none}
+.dock>span,.dock>b{white-space:nowrap}
+.dock b{color:var(--bright);font-weight:500;font-variant-numeric:tabular-nums}
+.dock .btn{height:38px}
+@media (max-width:480px){.dock{gap:10px;padding-left:14px}.dock .hide-s{display:none}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body style="margin:0">
+<header class="top">
+  <div class="wrap bar">
+    <a class="mark" href="#top" aria-label="zeros, back to top">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><ellipse cx="10" cy="10" rx="6" ry="8.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.6 16.2 14.4 3.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>zeros</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#rig">rig</a><a href="#network">network</a><a href="#ledger">ledger</a><a href="#treasury">treasury</a><a href="#rules">rules</a>
+    </nav>
+    <div class="bar-r">
+      <a class="xlink" id="xLink" href="https://x.com/" target="_blank" rel="noopener" aria-label="zeros on X">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+      <button class="btn ghost sm" id="hdrWallet" type="button">Connect wallet</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="stage" id="stage">
+    <div class="stage-sticky" aria-hidden="true">
+      <canvas id="gl"></canvas>
+      <img class="stage-fb" id="glFb" src="shaft.jpg" alt="" hidden>
+      <div class="marks" id="marks"><svg id="marksSvg"><line id="recLine" x1="0" y1="0" x2="0" y2="0" stroke="#8fdcff" stroke-width="1" stroke-opacity=".7"/></svg></div>
+      <div class="scrim"></div>
+    </div>
+
+    <div class="stage-flow wrap" id="flow">
+      <div class="beat hero" data-cam="hero">
+        <div class="copy">
+          <p class="eyebrow"><span class="dot live"></span><span id="eyeNet">testnet live</span><span class="sep">/</span><span id="eyeRound">round</span><span class="sep">/</span><span id="eyeLeft">0:00 left</span></p>
+          <h1>Hash for zeros.<br>The <em>deepest</em><br>one wins.</h1>
+          <p class="lede">Your browser searches SHA-256 for hashes that start with zeros. Every proof is checked in one hash and credited by the work it took. Each round, the deepest hash takes a bonus.</p>
+          <div class="controls">
+            <button class="btn primary" id="mineBtn" type="button"><span class="dot"></span><span id="mineLabel">Start mining</span></button>
+            <div class="threads" id="threads" role="group" aria-label="Threads"><span class="lbl">threads</span></div>
+          </div>
+          <p class="fine" id="heroFine"><span class="chip warn">beta</span><span>proofs are real. payouts open at mainnet.</span></p>
+        </div>
+        <div class="cue"><i></i>scroll to dig</div>
+      </div>
+
+      <div class="beat" data-cam="9">
+        <div class="copy">
+          <p class="kick"><i></i><span>d8 <em>· 1 in 256</em></span></p>
+          <h2>Every hash is <em>a dig.</em></h2>
+          <p class="txt">Your tab tries nonces as fast as your CPU allows. Each try is a SHA-256 hash, and every extra zero bit at the front halves the odds. While you mine, your best hashes drop into the shaft.</p>
+        </div>
+      </div>
+
+      <div class="beat" data-cam="22">
+        <div class="copy">
+          <p class="kick"><i></i><span>d<span data-diff>22</span> <em>· 1 in <span data-tries>4.2M</span></em></span></p>
+          <h2>Cross the line and it's <em>a proof.</em></h2>
+          <p class="txt">Any hash with <span data-diff>22</span> or more zero bits is a proof. It takes about <span data-tries>4.2M</span> tries on average, and one more hash checks it, so nobody can fake one.</p>
+        </div>
+      </div>
+
+      <div class="beat" data-cam="27">
+        <div class="copy">
+          <p class="kick"><i></i><span>+1 bit <em>· 2× credit</em></span></p>
+          <h2>Deeper counts <em>double.</em></h2>
+          <p class="txt">A proof with <i>d</i> zero bits is credited by the work it statistically took. A d26 proof counts as much as sixteen d<span data-diff>22</span>s.</p>
+          <span class="formula">credit = 2<sup>d − <span data-diff>22</span></sup></span>
+        </div>
+      </div>
+
+      <div class="beat last" data-cam="record">
+        <div class="copy">
+          <p class="kick"><i></i><span id="beatRec" style="color:inherit">round record</span></p>
+          <h2>The deepest one <em>wins.</em></h2>
+          <p class="txt">Every <span data-round-s>60</span> seconds the round closes. The single deepest hash takes <span data-bonus>20</span>% of that round's pool, and the rest splits by credits.</p>
+          <div class="acts">
+            <button class="btn primary" id="mineBtn2" type="button"><span class="dot"></span><span class="mineLabel2">Start mining</span></button>
+            <a class="btn ghost" href="#rig">Open the rig</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="rig">
+    <div class="wrap">
+      <div class="sec-head">
+        <div><p class="kick"><i></i>the rig</p><h2>Live from <em>your tab.</em></h2></div>
+        <p>Everything here is computed in this browser. Your hashes are real SHA-256 and every proof is re-checked before it counts.</p>
+      </div>
+      <div class="rigrow">
+        <figure class="panel slab-card" aria-label="Deepest hash of the round" style="margin:0">
+          <figcaption class="slab-top"><span id="slabLabel">round challenge</span><b id="slabDepth">depth 0</b></figcaption>
+          <div class="slab" id="slab"></div>
+          <div class="slab-foot"><span id="slabWho">waiting for the first proof</span><span id="slabOdds"></span></div>
+          <div class="roundbar"><i id="roundFill"></i></div>
+        </figure>
+        <div class="rig" aria-label="Your rig">
+          <div class="tile"><span class="k">your hash rate</span><span class="v" id="rRate">0 H/s</span><span class="s" id="rThreads">idle</span></div>
+          <div class="tile"><span class="k">hashes this round</span><span class="v" id="rHashes">0</span><span class="s" id="rTotal">0 all time</span></div>
+          <div class="tile"><span class="k">proofs this round</span><span class="v" id="rProofs">0</span><span class="s" id="rCredits">0 credits</span></div>
+          <div class="tile"><span class="k">your deepest</span><span class="v" id="rBest">none yet</span><span class="s" id="rBestOdds">start mining</span></div>
+        </div>
+      </div>
+
+      <div class="panel block">
+        <div class="phead">
+          <h3>depth, this round</h3>
+          <ul class="legend">
+            <li><i class="lg you"></i>your hashes</li>
+            <li><i class="lg proof"></i>your proofs</li>
+            <li><i class="lg peer"></i>peer proofs</li>
+            <li><i class="lg diff"></i>difficulty</li>
+          </ul>
+        </div>
+        <div class="cv"><canvas id="trench" role="img" aria-label="Chart of hash depth over the current round"></canvas></div>
+      </div>
+
+      <div class="panel net block" id="network">
+        <div class="net-head">
+          <span>network</span>
+          <span class="net-status"><span>mining <b id="netMining">idle</b></span><span class="dot live"></span><span>testnet live</span></span>
+        </div>
+        <ol class="steps" id="steps">
+          <li><span class="n">01</span>challenge</li>
+          <li class="live"><span class="n">02</span>hash</li>
+          <li><span class="n">03</span>submit</li>
+          <li><span class="n">04</span>verify</li>
+          <li><span class="n">05</span>credit</li>
+          <li class="locked"><span class="n">06</span>payout<em>mainnet</em></li>
+        </ol>
+        <div class="nstats">
+          <div><span class="k">miners</span><span class="v" id="nMiners">0</span></div>
+          <div><span class="k">network hash rate</span><span class="v" id="nRate">0 H/s</span></div>
+          <div><span class="k">proofs / min</span><span class="v" id="nPpm">0</span></div>
+          <div><span class="k">difficulty</span><span class="v" id="nDiff">22 bits</span></div>
+        </div>
+        <div class="stream" id="stream" aria-hidden="true"></div>
+        <p class="note" id="netNote">Testnet peers are simulated until the mainnet server is live. Your hashes and proofs are real, and this tab re-checks every one.</p>
+      </div>
+
+      <div class="duo block">
+        <div class="col">
+          <div class="panel" id="wallet">
+            <div class="phead"><h3>wallet</h3><span class="chip" id="wState">guest</span></div>
+            <p class="addr none" id="wAddr">no wallet</p>
+            <dl class="kv">
+              <div><dt>credits this round</dt><dd id="wCredits">0</dd></div>
+              <div><dt>share of round</dt><dd id="wShare">0.00%</dd></div>
+              <div><dt>credits, all time</dt><dd id="wLife">0</dd></div>
+            </dl>
+            <button class="btn ghost full" id="wBtn" type="button">Connect wallet</button>
+            <form id="addrForm" hidden novalidate>
+              <label for="addrInput">Solana address</label>
+              <div class="inrow">
+                <input id="addrInput" name="addr" autocomplete="off" spellcheck="false" placeholder="Paste your address">
+                <button class="btn primary sm" type="submit">Use</button>
+              </div>
+              <p class="fine err" id="addrErr" hidden>That isn't a Solana address. It should be 32 to 44 characters.</p>
+            </form>
+            <p class="fine">Address only. No signature, no transaction. Proofs are bound to it.</p>
+          </div>
+
+          <div class="panel" id="treasury">
+            <div class="phead"><h3>treasury</h3><span class="chip warn">beta</span></div>
+            <dl class="kv">
+              <div><dt>reward pool</dt><dd>opens at mainnet</dd></div>
+              <div><dt>creator fees to pool</dt><dd><span data-pool>80</span>%</dd></div>
+              <div><dt>creator fees to infra</dt><dd><span data-infra>20</span>%</dd></div>
+              <div><dt>deepest-hash bonus</dt><dd><span data-bonus>20</span>% per round</dd></div>
+              <div><dt>paid to date</dt><dd>0.0000 SOL</dd></div>
+            </dl>
+            <p class="fine">Nothing is paid during beta. Every balance here will be read from chain once the reward wallet is live.</p>
+          </div>
+        </div>
+
+        <div class="panel" id="ledger">
+          <div class="phead">
+            <h3>ledger</h3>
+            <div class="tabs" role="tablist" aria-label="Ledger view">
+              <button type="button" role="tab" id="tab-proofs" aria-selected="true" data-tab="proofs">proofs</button>
+              <button type="button" role="tab" id="tab-leaders" aria-selected="false" data-tab="leaders">leaders</button>
+              <button type="button" role="tab" id="tab-rounds" aria-selected="false" data-tab="rounds">rounds</button>
+            </div>
+          </div>
+          <ol class="rows" id="rows"></ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="rules">
+    <div class="wrap">
+      <div class="sec-head">
+        <div><p class="kick"><i></i>rules</p><h2>Six rules. <em>No exceptions.</em></h2></div>
+        <p>At mainnet the server enforces them. In beta, the tab you are mining in checks every proof the same way.</p>
+      </div>
+      <ol class="rules">
+        <li><span class="rn">R1</span><h3>One challenge per round</h3><p>Every <span data-round-s>60</span> seconds a new challenge is derived from the round number. Anyone can recompute it, so nobody can mine ahead.</p></li>
+        <li><span class="rn">R2</span><h3>A proof is a nonce</h3><p><code>sha256(challenge · address · nonce)</code> must start with at least <span data-diff>22</span> zero bits. That takes about <span data-tries>4.2M</span> tries on average.</p></li>
+        <li><span class="rn">R3</span><h3>One hash to check it</h3><p>Every submitted proof is hashed once more. If it doesn't hold, it earns nothing and shows as rejected in the ledger.</p></li>
+        <li><span class="rn">R4</span><h3>Deeper counts double</h3><p>Each extra zero bit halves the odds, so a proof with <i>d</i> zero bits is credited 2<sup>d−<span data-diff>22</span></sup> units: the work it statistically took.</p></li>
+        <li><span class="rn">R5</span><h3>Deepest takes the bonus</h3><p>The single deepest hash of each round takes <span data-bonus>20</span>% of that round's pool. The rest splits by credits.</p></li>
+        <li><span class="rn">R6</span><h3>Paid from real fees</h3><p><span data-pool>80</span>% of <span data-ticker>$ZEROS</span> creator fees fund the pool and <span data-infra>20</span>% keeps the servers on. During beta, credits are tracked and nothing is paid.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec sec-tight" aria-label="Token">
+    <div class="wrap">
+      <div class="panel token">
+        <div class="tk">
+          <span class="tick" data-ticker>$ZEROS</span>
+          <p class="ca tba" id="ca">tba</p>
+          <p class="fine" id="caNote">Appears here once the coin exists on chain, never before.</p>
+        </div>
+        <div class="token-act">
+          <button class="btn ghost sm" id="caCopy" type="button" hidden>Copy CA</button>
+          <a class="btn primary sm" id="caLink" href="https://pump.fun" target="_blank" rel="noopener" hidden>Trade on pump.fun</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-row">
+    <span class="mark"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><ellipse cx="10" cy="10" rx="6" ry="8.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.6 16.2 14.4 3.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>zeros</span></span>
+    <span>Hash for zeros. The deepest one wins.</span>
+    <nav aria-label="Footer"><a href="#rules">rules</a><a href="#treasury">treasury</a><a id="xLink2" href="https://x.com/" target="_blank" rel="noopener">x</a></nav>
+  </div>
+  <div class="bigmark" aria-hidden="true">zer<span>o</span>s</div>
+</footer>
+
+<div class="dock" id="dock" role="region" aria-label="Mining">
+  <span class="dot" id="dockDot"></span><b id="dockState">idle</b><span class="sep hide-s"></span><span class="hide-s" id="dockRate">0 H/s</span><span class="sep"></span><span id="dockProofs">0 proofs</span>
+  <button class="btn primary sm" id="dockBtn" type="button">Start mining</button>
+</div>
+
+<script type="text/plain" id="zw">
+'use strict';
+const K=new Int32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+const I0=0x6a09e667|0,I1=0xbb67ae85|0,I2=0x3c6ef372|0,I3=0xa54ff53a|0,I4=0x510e527f|0,I5=0x9b05688c|0,I6=0x1f83d9ab|0,I7=0x5be0cd19|0;
+const W=new Int32Array(64);
+let job=null,live=false,hi=0,lo=0,M=null,chunkN=20000,winHashes=0,winBest=-1,winRec=null,proofs=[],lastPost=0;
+const ch=new MessageChannel();
+function hx(){let s='';for(let i=0;i<arguments.length;i++)s+=('0000000'+(arguments[i]>>>0).toString(16)).slice(-8);return s;}
+function setJob(j){
+  job=j;hi=j.seed|0;lo=0;
+  for(let i=0;i<16;i++)W[i]=0;
+  for(let i=0;i<8;i++)W[i]=j.chal[i]|0;
+  W[8]=j.tag[0]|0;W[9]=j.tag[1]|0;W[12]=0x80000000|0;W[15]=384;
+  let a=I0,b=I1,c=I2,d=I3,e=I4,f=I5,g=I6,h=I7;
+  for(let i=0;i<10;i++){
+    const t1=(h+((e>>>6|e<<26)^(e>>>11|e<<21)^(e>>>25|e<<7))+((e&f)^(~e&g))+K[i]+W[i])|0;
+    const t2=(((a>>>2|a<<30)^(a>>>13|a<<19)^(a>>>22|a<<10))+((a&b)^(a&c)^(b&c)))|0;
+    h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+  }
+  M=[a,b,c,d,e,f,g,h];
+  winHashes=0;winBest=-1;winRec=null;proofs=[];lastPost=performance.now();
+}
+function run(){
+  if(!live||!job)return;
+  const t0=performance.now(),diff=job.diff,n=chunkN;
+  const m0=M[0],m1=M[1],m2=M[2],m3=M[3],m4=M[4],m5=M[5],m6=M[6],m7=M[7];
+  for(let k=0;k<n;k++){
+    W[10]=hi;W[11]=lo;
+    for(let i=16;i<64;i++){
+      const x=W[i-15],y=W[i-2];
+      W[i]=(W[i-16]+((x>>>7|x<<25)^(x>>>18|x<<14)^(x>>>3))+W[i-7]+((y>>>17|y<<15)^(y>>>19|y<<13)^(y>>>10)))|0;
+    }
+    let a=m0,b=m1,c=m2,d=m3,e=m4,f=m5,g=m6,h=m7;
+    for(let i=10;i<64;i++){
+      const t1=(h+((e>>>6|e<<26)^(e>>>11|e<<21)^(e>>>25|e<<7))+((e&f)^(~e&g))+K[i]+W[i])|0;
+      const t2=(((a>>>2|a<<30)^(a>>>13|a<<19)^(a>>>22|a<<10))+((a&b)^(a&c)^(b&c)))|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+    }
+    const h0=(a+I0)|0;
+    const lz=h0!==0?Math.clz32(h0):32+Math.clz32((b+I1)|0);
+    if(lz>winBest||lz>=diff){
+      const s=hx(h0,b+I1,c+I2,d+I3,e+I4,f+I5,g+I6,h+I7);
+      if(lz>winBest){winBest=lz;winRec={lz:lz,hex:s,hi:hi,lo:lo};}
+      if(lz>=diff)proofs.push({lz:lz,hex:s,hi:hi,lo:lo});
+    }
+    lo=(lo+1)|0;if(lo===0)hi=(hi+1)|0;
+  }
+  winHashes+=n;
+  const t1=performance.now(),el=t1-t0;
+  chunkN=Math.max(2000,Math.min(400000,Math.round(n*40/Math.max(1,el))));
+  if(t1-lastPost>=250){
+    postMessage({type:'report',round:job.round,chal:job.chal,tag:job.tag,hashes:winHashes,best:winRec,proofs:proofs});
+    winHashes=0;winBest=-1;winRec=null;proofs=[];lastPost=t1;
+  }
+  ch.port2.postMessage(0);
+}
+ch.port1.onmessage=run;
+onmessage=function(e){
+  const m=e.data;
+  if(m.type==='job'){setJob(m);if(!live){live=true;ch.port2.postMessage(0);}}
+  else if(m.type==='stop'){live=false;}
+};
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ---- edit these for launch ---- */
+const CONFIG = {
+  ticker: '$ZEROS',
+  ca: '',                       // paste the contract address once the coin exists on chain
+  pumpUrl: '',                  // optional full pump.fun link; built from ca when empty
+  xUrl: 'https://x.com/',       // your X profile
+  genesis: Date.UTC(2026, 9, 13, 0, 0, 0),
+  roundMs: 60000,
+  difficulty: 22,
+  poolPct: 80,
+  bonusPct: 20,
+  simPeers: true                // testnet peers are simulated until the mainnet server is live
+};
+
+const DIFF = CONFIG.difficulty;
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k){ try { localStorage.removeItem(k); } catch (e) {} }
+};
+const reduceMotion = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+const enc = new TextEncoder();
+const subtle = (window.crypto && crypto.subtle) ? crypto.subtle : null;
+const sha = async (data) => new Uint8Array(await subtle.digest('SHA-256', data));
+const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+const words = (u8) => { const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength); const w = []; for (let i = 0; i < u8.byteLength; i += 4) w.push(dv.getInt32(i)); return w; };
+function clzHex(h){ let n = 0; for (const ch of h){ const v = parseInt(ch, 16); if (v === 0){ n += 4; continue; } n += Math.clz32(v) - 28; break; } return n; }
+const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+function fmtRate(h){ if (h >= 1e9) return (h / 1e9).toFixed(2) + ' GH/s'; if (h >= 1e6) return (h / 1e6).toFixed(2) + ' MH/s'; if (h >= 1e3) return (h / 1e3).toFixed(1) + ' kH/s'; return Math.round(h) + ' H/s'; }
+function big(n){ if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T'; if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B'; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return String(Math.round(n)); }
+const odds = (d) => '1 in ' + big(Math.pow(2, d));
+function fmtCredits(c){ return c >= 1000 ? big(c) : (Math.round(c * 10) / 10).toString(); }
+function zh(hex, len){ const s = len ? hex.slice(0, len) : hex; let i = 0; while (i < s.length && s[i] === '0') i++; return '<b>' + s.slice(0, i) + '</b>' + s.slice(i) + (len && len < hex.length ? '…' : ''); }
+function ago(t){ const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 2 ? 'now' : s < 60 ? s + 's' : Math.floor(s / 60) + 'm'; }
+const shortAddr = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+const roundOf = (t) => Math.floor((t - CONFIG.genesis) / CONFIG.roundMs) + 1;
+function gauss(){ let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function fakeHex(d){ const b = crypto.getRandomValues(new Uint8Array(32)); const full = d >> 3, r = d & 7; for (let i = 0; i < full; i++) b[i] = 0; b[full] = (b[full] & (0xff >> (r + 1))) | (0x80 >> r); return toHex(b); }
+
+/* ---- static copy from config ---- */
+document.querySelectorAll('[data-diff]').forEach((el) => { el.textContent = DIFF; });
+document.querySelectorAll('[data-tries]').forEach((el) => { el.textContent = big(Math.pow(2, DIFF)); });
+document.querySelectorAll('[data-pool]').forEach((el) => { el.textContent = CONFIG.poolPct; });
+document.querySelectorAll('[data-infra]').forEach((el) => { el.textContent = 100 - CONFIG.poolPct; });
+document.querySelectorAll('[data-bonus]').forEach((el) => { el.textContent = CONFIG.bonusPct; });
+document.querySelectorAll('[data-round-s]').forEach((el) => { el.textContent = Math.round(CONFIG.roundMs / 1000); });
+document.querySelectorAll('[data-ticker]').forEach((el) => { el.textContent = CONFIG.ticker; });
+$('nDiff').textContent = DIFF + ' bits';
+$('xLink').href = CONFIG.xUrl; $('xLink2').href = CONFIG.xUrl;
+if (!CONFIG.simPeers) $('netNote').textContent = 'Network figures come from your rig alone until the mainnet server is live. Your hashes and proofs are real, and this tab re-checks every one.';
+
+if (CONFIG.ca){
+  $('ca').textContent = CONFIG.ca; $('ca').classList.remove('tba');
+  $('caNote').textContent = 'Contract address on Solana.';
+  $('caCopy').hidden = false;
+  $('caLink').href = CONFIG.pumpUrl || ('https://pump.fun/coin/' + CONFIG.ca);
+  $('caLink').hidden = false;
+  $('caCopy').addEventListener('click', () => {
+    const done = () => { $('caCopy').textContent = 'Copied'; setTimeout(() => { $('caCopy').textContent = 'Copy CA'; }, 1400); };
+    const select = () => { const r = document.createRange(); r.selectNodeContents($('ca')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    try { navigator.clipboard.writeText(CONFIG.ca).then(done, select); } catch (e) { select(); }
+  });
+}
+
+/* ================= 3D stage ================= */
+const Stage = (() => {
+  const api = { drop(){}, setRecord(){}, ok: false };
+  const canvas = $('gl');
+  const fail = () => { canvas.hidden = true; $('glFb').hidden = false; $('marks').hidden = true; return api; };
+  if (!window.THREE) return fail();
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' }); }
+  catch (e) { return fail(); }
+  const T = THREE;
+  renderer.setClearColor(0x000000, 0);
+  const scene = new T.Scene();
+  const cam = new T.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+  const DEPTH = 40, HALF = 4;
+
+  scene.add(new T.HemisphereLight(0xbcd6ea, 0x05070a, 0.5));
+  const key = new T.DirectionalLight(0xe6f3ff, 0.95); key.position.set(-9, 16, 11); scene.add(key);
+  const rimL = new T.DirectionalLight(0x8fdcff, 0.16); rimL.position.set(12, 3, -8); scene.add(rimL);
+
+  let seed = 7;
+  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const cells = [], shelves = [];
+  for (let k = 0; k <= DEPTH; k++){
+    for (let x = -HALF; x <= HALF; x++){
+      for (let z = -HALF; z <= HALF; z++){
+        const hollow = Math.abs(x) <= 1 && Math.abs(z) <= 1 && k < DEPTH;
+        const cut = x >= 0 && z >= 0;
+        if (hollow || cut) continue;
+        cells.push([x, -k, z, k]);
+      }
+    }
+    if (k > 0 && k < DEPTH && k % 4 === 0){
+      [[-1,-1],[-1,0],[-1,1],[0,-1],[1,-1]].forEach(([x, z]) => shelves.push([x, -k + 0.36, z, k]));
+    }
+  }
+  const mat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0.08 });
+  const col = new T.Color(), m4 = new T.Matrix4();
+  function inst(geo, list, base, spread){
+    const mesh = new T.InstancedMesh(geo, mat, list.length);
+    list.forEach(([x, y, z, k], i) => {
+      m4.makeTranslation(x, y, z); mesh.setMatrixAt(i, m4);
+      let f = 1 - 0.58 * (k / DEPTH);
+      if ((x === -1 && z >= 2) || (z === -1 && x >= 2)) f *= 0.6;
+      else if ((x === -2 && Math.abs(z) <= 1) || (z === -2 && Math.abs(x) <= 1)) f *= 0.78;
+      let g = (k === 0 ? base * 1.7 : base) + (rnd() - 0.5) * spread;
+      g *= f;
+      col.setRGB(g * 0.9, g * 0.97, g * 1.1);
+      mesh.setColorAt(i, col);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    scene.add(mesh);
+    return mesh;
+  }
+  inst(new T.BoxGeometry(0.93, 0.93, 0.93), cells, 0.2, 0.06);
+  inst(new T.BoxGeometry(0.93, 0.26, 0.93), shelves, 0.27, 0.04);
+
+  // proof line at the difficulty boundary
+  const PL = -(DIFF - 0.5);
+  const lineMat = new T.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.95 });
+  const pts = [[4.53,-4.53],[4.53,-0.47],[-0.47,-0.47],[-0.47,4.53],[-4.53,4.53]];
+  for (let i = 0; i < pts.length - 1; i++){
+    const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const seg = new T.Mesh(new T.BoxGeometry(x1 === x2 ? 0.05 : len, 0.05, z1 === z2 ? 0.05 : len), lineMat);
+    seg.position.set((x1 + x2) / 2, PL, (z1 + z2) / 2);
+    scene.add(seg);
+  }
+  const sheet = new T.Mesh(new T.PlaneGeometry(3, 3), new T.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.07, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending }));
+  sheet.rotation.x = -Math.PI / 2; sheet.position.set(0, PL, 0); scene.add(sheet);
+
+  // glow texture
+  const gc = document.createElement('canvas'); gc.width = gc.height = 128;
+  const gx = gc.getContext('2d'); const gr = gx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
+  const glowTex = new T.CanvasTexture(gc);
+
+  // record cube
+  const rec = new T.Group();
+  const recCube = new T.Mesh(new T.BoxGeometry(0.64, 0.64, 0.64), new T.MeshBasicMaterial({ color: 0xc8f2ff }));
+  const recGlow = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: 0x8fdcff, transparent: true, blending: T.AdditiveBlending, depthWrite: false }));
+  recGlow.scale.set(5.2, 5.2, 1);
+  const recLight = new T.PointLight(0x8fdcff, 2.6, 7.5, 1.6);
+  rec.add(recCube, recGlow, recLight); scene.add(rec);
+  let recY = -30, recTarget = -30, recFlash = 0, recHolder = null, recDepth = 0;
+
+  // dust in the shaft
+  const DN = 260, dpos = new Float32Array(DN * 3), dspd = new Float32Array(DN);
+  for (let i = 0; i < DN; i++){ dpos[i*3] = (Math.random() - 0.5) * 16; dpos[i*3+1] = 4 - Math.random() * (DEPTH + 8); dpos[i*3+2] = (Math.random() - 0.5) * 16; dspd[i] = 0.15 + Math.random() * 0.35; }
+  const dgeo = new T.BufferGeometry(); dgeo.setAttribute('position', new T.BufferAttribute(dpos, 3));
+  const dust = new T.Points(dgeo, new T.PointsMaterial({ color: 0x8fdcff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.35, depthWrite: false, blending: T.AdditiveBlending }));
+  scene.add(dust);
+
+  // falling hashes
+  const pool = [];
+  const pGeo = new T.BoxGeometry(0.3, 0.3, 0.3);
+  for (let i = 0; i < 72; i++){
+    const m = new T.Mesh(pGeo, new T.MeshBasicMaterial({ color: 0x8fdcff, transparent: true }));
+    m.visible = false; scene.add(m);
+    pool.push({ m, on: false });
+  }
+  const COLORS = { you: 0x8fdcff, proof: 0xe9fbff, peer: 0x5d6f7c };
+  function drop(depth, kind){
+    const p = pool.find((q) => !q.on); if (!p) return;
+    const d = Math.min(DEPTH - 1, Math.max(1, depth));
+    p.on = true; p.kind = kind; p.target = -d; p.y = 2.5 + Math.random() * 1.5; p.vy = 0; p.t = 0; p.rest = false;
+    p.m.position.set((Math.random() - 0.5) * 1.8, p.y, (Math.random() - 0.5) * 1.8);
+    p.m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+    p.m.material.color.setHex(COLORS[kind]); p.m.material.opacity = 1;
+    const s = kind === 'proof' ? 1.35 : kind === 'peer' ? 0.9 : 1;
+    p.s = s; p.m.scale.setScalar(s); p.m.visible = true;
+    if (reduceMotion){ p.y = p.target; p.rest = true; }
+  }
+  function setRecord(depth, holder){
+    if (!depth){ recHolder = null; recDepth = 0; return; }
+    if (depth !== recDepth) recFlash = 1;
+    recDepth = depth; recHolder = holder; recTarget = -Math.min(DEPTH - 1, depth);
+    if (reduceMotion) recY = recTarget;
+  }
+
+  // depth marks
+  const marksEl = $('marks');
+  const marks = [];
+  const addMark = (y, html, cls) => { const el = document.createElement('div'); el.className = 'mk' + (cls ? ' ' + cls : ''); el.innerHTML = '<i></i>' + html; marksEl.appendChild(el); marks.push({ el, y }); return el; };
+  for (let d = 0; d <= DEPTH; d += 4) addMark(-d, d === 0 ? '<b>d0</b> surface' : '<b>d' + d + '</b> ' + odds(d));
+  addMark(PL, '<b>proof line · d' + DIFF + '</b>', 'pl');
+  const recMark = addMark(-30, '<b>record</b>', 'rec');
+  const recLine = $('recLine');
+
+  // camera + scroll
+  const flow = $('flow');
+  let beats = [], flowTop = 0, W = 1, H = 1, viewH = 26, heroTy = -8, mobile = false;
+  const EL = 27 * Math.PI / 180;
+  let ty = -8, az = 45, mx = 0, my = 0, smx = 0, smy = 0;
+  function measure(){
+    W = canvas.clientWidth || innerWidth; H = canvas.clientHeight || innerHeight;
+    mobile = W < 820;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
+    renderer.setSize(W, H, false);
+    const aspect = W / H;
+    viewH = Math.max(mobile ? 34 : 38, 12.8 / ((mobile ? 0.74 : 0.24) * aspect));
+    const viewW = viewH * aspect;
+    const cx = mobile ? 0.5 : 0.7;
+    cam.left = -viewW * cx; cam.right = viewW * (1 - cx); cam.top = viewH / 2; cam.bottom = -viewH / 2;
+    cam.updateProjectionMatrix();
+    heroTy = -(0.5 - (mobile ? 0.22 : 0.17)) * viewH / Math.cos(EL);
+    flowTop = flow.getBoundingClientRect().top + scrollY;
+    beats = Array.from(flow.querySelectorAll('.beat')).map((b) => ({ c: flowTop + b.offsetTop + b.offsetHeight / 2, cam: b.dataset.cam }));
+  }
+  function camFor(c){
+    if (c === 'hero') return heroTy;
+    if (c === 'record') return Math.max(-(DEPTH - 6), Math.min(heroTy, recTarget + 2));
+    return -Number(c);
+  }
+  function targetTy(){
+    if (!beats.length) return heroTy;
+    const vc = scrollY + innerHeight * 0.5;
+    if (vc <= beats[0].c) return camFor(beats[0].cam);
+    for (let i = 0; i < beats.length - 1; i++){
+      const a = beats[i], b = beats[i + 1];
+      if (vc <= b.c){ let t = (vc - a.c) / (b.c - a.c); t = t * t * (3 - 2 * t); return camFor(a.cam) + (camFor(b.cam) - camFor(a.cam)) * t; }
+    }
+    return camFor(beats[beats.length - 1].cam);
+  }
+  function progress(){ if (!beats.length) return 0; const a = beats[0].c, b = beats[beats.length - 1].c; return Math.min(1, Math.max(0, (scrollY + innerHeight * 0.5 - a) / (b - a))); }
+  function place(){
+    const a = az * Math.PI / 180, d = 80;
+    cam.position.set(Math.sin(a) * Math.cos(EL) * d, ty + Math.sin(EL) * d, Math.cos(a) * Math.cos(EL) * d);
+    cam.lookAt(0, ty, 0);
+  }
+  const v3 = new T.Vector3();
+  function toScreen(x, y, z){ v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * W, (1 - v3.y) / 2 * H]; }
+
+  let visible = true, last = performance.now(), t0 = last;
+  try { new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { rootMargin: '100px' }).observe($('stage')); } catch (e) {}
+  addEventListener('resize', () => { measure(); }, { passive: true });
+  addEventListener('pointermove', (e) => { mx = e.clientX / innerWidth * 2 - 1; my = e.clientY / innerHeight * 2 - 1; }, { passive: true });
+
+  function frame(now){
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    // particles keep falling even when the stage is off screen
+    for (const p of pool){
+      if (!p.on) continue;
+      if (!p.rest){
+        p.vy = Math.min(p.vy + 70 * dt, 42); p.y -= p.vy * dt;
+        if (p.y <= p.target){ p.y = p.target; p.rest = true; p.t = 0; }
+        p.m.rotation.x += dt * 3; p.m.rotation.y += dt * 2;
+      } else {
+        p.t += dt;
+        const hold = p.kind === 'proof' ? 2.2 : p.kind === 'peer' ? 1.4 : 0.9;
+        if (p.t > hold){ const k = Math.max(0, 1 - (p.t - hold) / 0.5); p.m.scale.setScalar(p.s * k); if (k <= 0){ p.on = false; p.m.visible = false; } }
+      }
+      p.m.position.y = p.y;
+    }
+    if (!visible || document.hidden) return;
+    if (!reduceMotion){
+      for (let i = 0; i < DN; i++){ let y = dpos[i*3+1] + dspd[i] * dt; if (y > 4) y = 4 - (DEPTH + 8); dpos[i*3+1] = y; }
+      dgeo.attributes.position.needsUpdate = true;
+    }
+    const tt = targetTy();
+    ty = reduceMotion ? tt : ty + (tt - ty) * Math.min(1, dt * 5);
+    smx += (mx - smx) * Math.min(1, dt * 3); smy += (my - smy) * Math.min(1, dt * 3);
+    const idle = reduceMotion ? 0 : Math.sin((now - t0) / 4200) * 1.2;
+    az = 45 - progress() * 9 + (reduceMotion ? 0 : smx * 2.5) + idle;
+    place();
+    recY = reduceMotion ? recTarget : recY + (recTarget - recY) * Math.min(1, dt * 3.2);
+    rec.position.set(0, recY, 0);
+    recFlash = Math.max(0, recFlash - dt * 1.4);
+    const pulse = reduceMotion ? 1 : 1 + Math.sin(now / 520) * 0.06;
+    recGlow.scale.setScalar((5.2 + recFlash * 4) * pulse);
+    recLight.intensity = 2.4 + recFlash * 3;
+    rec.visible = recDepth > 0;
+    recCube.rotation.y = reduceMotion ? 0.6 : now / 2400;
+    renderer.render(scene, cam);
+
+    if (!mobile){
+      const ax = 4.5, az2 = -4.5;
+      for (const m of marks){
+        if (m.el === recMark) continue;
+        const [sx, sy] = toScreen(ax, m.y, az2);
+        const vis = sy > 70 && sy < H - 30 && !(recDepth && Math.abs(m.y - recY) < 1.4);
+        m.el.style.opacity = vis ? 1 : 0;
+        m.el.style.transform = 'translate(' + (sx + 14).toFixed(1) + 'px,' + (sy - 6).toFixed(1) + 'px)';
+      }
+      if (recDepth){
+        const [cx, cy] = toScreen(0, recY, 0);
+        const [ex, ey] = toScreen(ax, recY, az2);
+        recMark.style.opacity = 1;
+        recMark.style.transform = 'translate(' + (ex + 14).toFixed(1) + 'px,' + (ey - 6).toFixed(1) + 'px)';
+        const txt = '<i></i><b>record · d' + recDepth + '</b> ' + (recHolder || '');
+        if (txt !== recMark._t){ recMark.innerHTML = txt; recMark._t = txt; }
+        recLine.setAttribute('x1', cx.toFixed(1)); recLine.setAttribute('y1', cy.toFixed(1));
+        recLine.setAttribute('x2', (ex + 14).toFixed(1)); recLine.setAttribute('y2', cy.toFixed(1));
+        recLine.style.opacity = 1;
+      } else { recMark.style.opacity = 0; recLine.style.opacity = 0; }
+    }
+  }
+  measure();
+  addEventListener('load', measure);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  ty = targetTy(); place();
+  requestAnimationFrame(frame);
+  api.drop = drop; api.setRecord = setRecord; api.ok = true;
+  return api;
+})();
+
+/* ================= miner + rounds ================= */
+const hc = Math.max(1, navigator.hardwareConcurrency || 4);
+const threadOpts = [...new Set([1, 2, 4, Math.min(hc, 16)])].filter((n) => n <= Math.max(hc, 1)).sort((a, b) => a - b);
+let defThreads = 1; threadOpts.forEach((n) => { if (n <= Math.max(1, Math.min(4, hc - 1))) defThreads = n; });
+
+let life = { proofs: 0, best: 0, credits: 0, hashes: 0 };
+try { const l = JSON.parse(store.get('zeros.life') || 'null'); if (l && typeof l === 'object') life = Object.assign(life, l); } catch (e) {}
+
+const S = {
+  running: false, threads: defThreads, workers: [], workerUrl: null,
+  round: 0, roundStart: 0, chalBytes: null, chalHex: '', chalWords: null,
+  tagWords: null, wallet: store.get('zeros.wallet'),
+  rate: 0, win: 0, rateT: performance.now(), lastTick: Date.now(),
+  hashesRound: 0,
+  you: { credits: 0, proofs: 0, best: 0, pbest: 0 },
+  record: { depth: 0, hex: null, holder: null },
+  points: [], ledger: [], rounds: [], stream: [], proofTimes: [],
+  tab: 'proofs'
+};
+const dirty = { ledger: true, stream: true, slab: true };
+
+const peers = [];
+if (CONFIG.simPeers){
+  const n = 14 + Math.floor(Math.random() * 8);
+  for (let i = 0; i < n; i++){
+    peers.push({ id: 'sim·' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0'),
+      rate: Math.exp(Math.log(6.5e5) + gauss() * 0.65), on: Math.random() < 0.82, credits: 0, proofs: 0, best: 0 });
+  }
+}
+
+const thrBox = $('threads');
+threadOpts.forEach((n) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = n; b.dataset.n = n;
+  b.setAttribute('aria-pressed', String(n === S.threads));
+  b.addEventListener('click', () => setThreads(n));
+  thrBox.appendChild(b);
+});
+function setThreads(n){
+  S.threads = n;
+  thrBox.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.n) === n)));
+  if (S.running){ stopMining(); startMining(); }
+}
+
+const stepEls = Array.from($('steps').children);
+function pulse(i){
+  const li = stepEls[i - 1]; if (!li || li.classList.contains('locked')) return;
+  li.classList.add('on'); clearTimeout(li._t);
+  li._t = setTimeout(() => li.classList.remove('on'), i === 1 ? 1400 : 650);
+}
+
+async function setTag(addr){
+  if (!subtle) return;
+  let bytes;
+  if (addr){ bytes = (await sha(enc.encode('zeros/address/' + addr))).slice(0, 8); }
+  else {
+    let a = store.get('zeros.anon');
+    if (!a || !/^[0-9a-f]{16}$/.test(a)){ a = toHex(crypto.getRandomValues(new Uint8Array(8))); store.set('zeros.anon', a); }
+    bytes = new Uint8Array(a.match(/../g).map((h) => parseInt(h, 16)));
+  }
+  S.tagWords = words(bytes);
+  postJobs();
+}
+
+function totalCredits(){ return S.you.credits + peers.reduce((s, p) => s + p.credits, 0); }
+function closeRound(){
+  if (!S.round || (!S.record.depth && !S.you.proofs)) return;
+  const total = totalCredits();
+  S.rounds.unshift({ round: S.round, depth: S.record.depth, holder: S.record.holder, proofs: S.you.proofs, share: total ? S.you.credits / total : 0 });
+  if (S.rounds.length > 40) S.rounds.length = 40;
+}
+async function newRound(r){
+  closeRound();
+  S.round = r; S.roundStart = CONFIG.genesis + (r - 1) * CONFIG.roundMs;
+  S.you = { credits: 0, proofs: 0, best: 0, pbest: 0 };
+  S.hashesRound = 0; S.record = { depth: 0, hex: null, holder: null }; S.points = [];
+  peers.forEach((p) => { p.credits = 0; p.proofs = 0; p.best = 0; });
+  S.chalWords = null;
+  dirty.ledger = dirty.slab = true;
+  if (!subtle) return;
+  const c = await sha(enc.encode('zeros/testnet/round/' + r));
+  if (S.round !== r) return;
+  S.chalBytes = c; S.chalHex = toHex(c); S.chalWords = words(c);
+  pulse(1); dirty.slab = true;
+  postJobs();
+}
+
+function postJobs(){
+  if (!S.running || !S.chalWords || !S.tagWords) return;
+  S.workers.forEach((w, i) => w.postMessage({
+    type: 'job', round: S.round, chal: S.chalWords, tag: S.tagWords, diff: DIFF,
+    seed: ((i & 0x7f) << 24) | Math.floor(Math.random() * 0xffffff)
+  }));
+}
+function startMining(){
+  if (!subtle || typeof Worker === 'undefined'){
+    const f = $('heroFine'); f.classList.add('err');
+    f.textContent = 'This browser can\'t mine here. Open the page over https in a current browser.';
+    return;
+  }
+  if (!S.workerUrl) S.workerUrl = URL.createObjectURL(new Blob([$('zw').textContent], { type: 'text/javascript' }));
+  for (let i = 0; i < S.threads; i++){
+    const w = new Worker(S.workerUrl);
+    w.onmessage = onReport;
+    S.workers.push(w);
+  }
+  S.running = true; S.win = 0; S.rateT = performance.now();
+  postJobs(); renderMining();
+}
+function stopMining(){
+  S.workers.forEach((w) => w.terminate());
+  S.workers = []; S.running = false; S.rate = 0; S.win = 0;
+  renderMining();
+}
+function renderMining(){
+  const on = S.running, label = on ? 'Stop mining' : 'Start mining';
+  $('mineBtn').classList.toggle('on', on); $('mineLabel').textContent = label;
+  $('mineBtn2').classList.toggle('on', on); document.querySelector('.mineLabel2').textContent = label;
+  $('dockBtn').textContent = label; $('dockBtn').classList.toggle('on', on);
+  $('dockState').textContent = on ? 'mining' : 'idle';
+  $('dockDot').classList.toggle('live', on);
+  $('netMining').textContent = on ? 'on' : 'idle';
+  $('rThreads').textContent = on ? S.threads + (S.threads === 1 ? ' thread' : ' threads') : 'idle';
+}
+const toggleMining = () => { S.running ? stopMining() : startMining(); };
+$('mineBtn').addEventListener('click', toggleMining);
+$('mineBtn2').addEventListener('click', toggleMining);
+$('dockBtn').addEventListener('click', toggleMining);
+
+function sameWords(a, b){ if (!a || !b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if ((a[i] | 0) !== (b[i] | 0)) return false; return true; }
+function onReport(e){
+  const m = e.data;
+  if (!m || m.type !== 'report' || m.round !== S.round || !sameWords(m.chal, S.chalWords)) return;
+  S.hashesRound += m.hashes; S.win += m.hashes; life.hashes += m.hashes;
+  if (m.best){
+    S.points.push({ t: Date.now() - S.roundStart, d: m.best.lz, k: 'you' });
+    if (m.best.lz > S.you.best) S.you.best = m.best.lz;
+    if (m.best.lz > life.best) life.best = m.best.lz;
+    pushStream(m.best.hex, m.best.lz, 'you', false);
+    if (m.best.lz < DIFF) Stage.drop(m.best.lz, 'you');
+  }
+  for (const p of m.proofs) onProof(p, m.chal, m.tag);
+}
+async function verifyProof(chalW, tagW, p){
+  const buf = new ArrayBuffer(48), dv = new DataView(buf);
+  chalW.forEach((w, i) => dv.setInt32(i * 4, w));
+  dv.setInt32(32, tagW[0]); dv.setInt32(36, tagW[1]);
+  dv.setInt32(40, p.hi); dv.setInt32(44, p.lo);
+  const h = toHex(await sha(buf));
+  return h === p.hex && clzHex(h) >= DIFF;
+}
+function addLedger(e){ S.ledger.unshift(e); if (S.ledger.length > 40) S.ledger.length = 40; dirty.ledger = true; }
+function onProof(p, chal, tag){
+  const r = S.round;
+  const entry = { round: r, hex: p.hex, d: p.lz, who: 'you', sim: false, at: Date.now(), status: 'checking' };
+  addLedger(entry); pushStream(p.hex, p.lz, 'you', true);
+  pulse(3); setTimeout(() => pulse(4), 170);
+  verifyProof(chal, tag, p).then((ok) => {
+    entry.status = ok ? 'verified' : 'rejected'; dirty.ledger = true;
+    if (!ok || r !== S.round) return;
+    const cr = Math.pow(2, p.lz - DIFF);
+    S.you.credits += cr; S.you.proofs++; if (p.lz > S.you.pbest) S.you.pbest = p.lz;
+    life.proofs++; life.credits += cr;
+    S.proofTimes.push(Date.now());
+    S.points.push({ t: Date.now() - S.roundStart, d: p.lz, k: 'proof' });
+    Stage.drop(p.lz, 'proof');
+    checkRecord(p.lz, p.hex, 'you');
+    setTimeout(() => pulse(5), 140);
+  });
+}
+function checkRecord(d, hex, holder){
+  if (d > S.record.depth){ S.record = { depth: d, hex, holder }; dirty.slab = true; Stage.setRecord(d, holder); }
+}
+function pushStream(hex, d, who, proof){
+  S.stream.unshift({ hex, d, who, proof });
+  if (S.stream.length > 12) S.stream.length = 12;
+  dirty.stream = true;
+}
+
+function simPeers(dt, now){
+  for (const p of peers){
+    if (!p.on) continue;
+    let lam = p.rate * dt / Math.pow(2, DIFF);
+    while (lam > 0){
+      if (Math.random() < Math.min(lam, 1)){
+        let d = DIFF; while (Math.random() < 0.5 && d < 44) d++;
+        const cr = Math.pow(2, d - DIFF), hex = fakeHex(d);
+        p.credits += cr; p.proofs++; if (d > p.best) p.best = d;
+        S.proofTimes.push(now);
+        S.points.push({ t: now - S.roundStart, d, k: 'peer' });
+        addLedger({ round: S.round, hex, d, who: p.id, sim: true, at: now, status: 'verified' });
+        if (Math.random() < 0.35) pushStream(hex, d, p.id, true);
+        Stage.drop(d, 'peer');
+        checkRecord(d, hex, p.id);
+        pulse(3); pulse(4); pulse(5);
+      }
+      lam -= 1;
+    }
+  }
+}
+function driftPeers(){
+  for (const p of peers){
+    p.rate = Math.min(6e6, Math.max(1.2e5, p.rate * Math.exp(gauss() * 0.04)));
+    if (Math.random() < 0.004) p.on = !p.on;
+  }
+}
+
+/* ---- record slab ---- */
+let scrambleTimer = 0;
+function slabHTML(hex, lead, scramble){
+  const hexd = '0123456789abcdef';
+  let out = '';
+  for (let r = 0; r < 4; r++){
+    out += '<span class="row">';
+    for (let c = 0; c < 16; c++){
+      const i = r * 16 + c;
+      let ch = hex[i], cls = 'c';
+      if (i < lead) cls = 'z';
+      else if (i === lead && lead > 0) cls = 'f';
+      if (scramble && i >= lead) ch = hexd[Math.floor(Math.random() * 16)];
+      out += '<span class="' + cls + '">' + ch + '</span>';
+    }
+    out += '</span>';
+  }
+  return out;
+}
+function renderSlab(){
+  const rec = S.record, slab = $('slab');
+  clearInterval(scrambleTimer);
+  if (!rec.hex){
+    const hex = S.chalHex || '0'.repeat(64);
+    slab.innerHTML = slabHTML(hex, 0, false).replace(/class="f"/g, 'class="c"');
+    $('slabLabel').textContent = 'round ' + fmtInt(S.round) + ' challenge';
+    $('slabDepth').textContent = 'no proof yet';
+    $('slabWho').textContent = 'waiting for the first proof';
+    $('slabOdds').textContent = '';
+    $('beatRec').textContent = 'round ' + fmtInt(S.round) + ' · no record yet';
+    return;
+  }
+  let lead = 0; while (lead < 64 && rec.hex[lead] === '0') lead++;
+  $('slabLabel').textContent = 'round ' + fmtInt(S.round) + ' record';
+  $('slabDepth').textContent = 'depth ' + rec.depth;
+  $('slabWho').innerHTML = 'held by <b class="' + (rec.holder === 'you' ? 'you' : '') + '">' + rec.holder + '</b>';
+  $('slabOdds').textContent = odds(rec.depth);
+  $('beatRec').textContent = 'record · d' + rec.depth + ' · ' + rec.holder;
+  if (reduceMotion){ slab.innerHTML = slabHTML(rec.hex, lead, false); return; }
+  let f = 0;
+  slab.innerHTML = slabHTML(rec.hex, lead, true);
+  scrambleTimer = setInterval(() => {
+    f++;
+    if (f >= 9){ clearInterval(scrambleTimer); slab.innerHTML = slabHTML(rec.hex, lead, false); return; }
+    slab.innerHTML = slabHTML(rec.hex, lead, true);
+  }, 38);
+}
+
+/* ---- ledger ---- */
+function renderLedger(){
+  const ol = $('rows');
+  if (S.tab === 'proofs'){
+    if (!S.ledger.length){ ol.innerHTML = '<li class="empty">No proofs yet this round. Accepted proofs from every miner land here.</li>'; return; }
+    ol.innerHTML = S.ledger.slice(0, 30).map((e) => {
+      const st = e.status === 'verified' ? '<span class="st ok">verified</span>' : e.status === 'rejected' ? '<span class="st bad">rejected</span>' : '<span class="st wait">checking</span>';
+      return '<li class="lrow' + (e.sim ? '' : ' you') + '"><span class="d">d' + e.d + '</span><span class="hx">' + zh(e.hex, 40) + '</span><span class="who">' + e.who + '</span>' + st + '<span class="ago">' + ago(e.at) + '</span></li>';
+    }).join('');
+  } else if (S.tab === 'leaders'){
+    const total = totalCredits();
+    const all = [{ nm: 'you', you: true, credits: S.you.credits, proofs: S.you.proofs, best: S.you.pbest }]
+      .concat(peers.filter((p) => p.on || p.credits > 0).map((p) => ({ nm: p.id, you: false, credits: p.credits, proofs: p.proofs, best: p.best })))
+      .sort((a, b) => b.credits - a.credits || (a.you ? -1 : 1));
+    let top = all.slice(0, 12);
+    if (!top.some((x) => x.you)) top = top.concat(all.filter((x) => x.you));
+    ol.innerHTML = top.map((x) => {
+      const sh = total ? x.credits / total : 0;
+      return '<li class="lead' + (x.you ? ' you' : '') + '"><span class="rk">' + (all.indexOf(x) + 1) + '</span><span class="nm">' + x.nm + '</span><span class="pr">' + x.proofs + ' pf</span><span class="bd">' + (x.best ? 'd' + x.best : '—') + '</span><span class="share"><i><span style="width:' + (sh * 100).toFixed(1) + '%"></span></i>' + (sh * 100).toFixed(1) + '%</span></li>';
+    }).join('');
+  } else {
+    if (!S.rounds.length){ ol.innerHTML = '<li class="empty">No finished rounds yet. Each round closes after ' + Math.round(CONFIG.roundMs / 1000) + ' seconds and its record is written here.</li>'; return; }
+    ol.innerHTML = S.rounds.map((r) =>
+      '<li class="rnd"><span class="rn">r' + fmtInt(r.round) + '</span><span class="rec' + (r.holder === 'you' ? ' you' : '') + '">record d' + r.depth + ' · ' + (r.holder || '—') + '</span><span class="ys">you ' + r.proofs + ' pf · ' + (r.share * 100).toFixed(1) + '%</span></li>'
+    ).join('');
+  }
+}
+document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => {
+  S.tab = b.dataset.tab;
+  document.querySelectorAll('.tabs [role="tab"]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  renderLedger();
+}));
+
+function renderStream(){
+  $('stream').innerHTML = S.stream.map((s) =>
+    '<div class="ln' + (s.proof ? ' proof' : '') + (s.who !== 'you' ? ' sim' : '') + '"><span class="d">d' + s.d + '</span><span class="w">' + s.who + '</span>' + zh(s.hex) + '</div>'
+  ).join('') || '<div class="ln">waiting for hashes…</div>';
+}
+
+/* ---- wallet ---- */
+function renderWallet(){
+  const a = S.wallet;
+  $('hdrWallet').textContent = a ? shortAddr(a) : 'Connect wallet';
+  $('wAddr').textContent = a || 'no wallet';
+  $('wAddr').classList.toggle('none', !a);
+  $('wState').textContent = a ? 'connected' : 'guest';
+  $('wState').classList.toggle('ok', !!a);
+  $('wBtn').textContent = a ? 'Disconnect' : 'Connect wallet';
+  if (a) $('addrForm').hidden = true;
+}
+function setWallet(a){
+  S.wallet = a;
+  if (a) store.set('zeros.wallet', a); else store.del('zeros.wallet');
+  setTag(a); renderWallet();
+}
+function provider(){ return (window.phantom && window.phantom.solana) || window.solflare || window.solana || null; }
+async function connectWallet(){
+  const p = provider();
+  if (p && p.connect){
+    try {
+      const res = await p.connect();
+      const pk = (res && res.publicKey) || p.publicKey;
+      if (pk){ setWallet(pk.toString()); return; }
+    } catch (e) { /* declined in the wallet */ }
+  }
+  $('addrForm').hidden = false;
+  $('wallet').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  setTimeout(() => $('addrInput').focus(), 300);
+}
+function onWalletBtn(){
+  if (S.wallet){ const p = provider(); try { p && p.disconnect && p.disconnect(); } catch (e) {} setWallet(null); }
+  else connectWallet();
+}
+$('wBtn').addEventListener('click', onWalletBtn);
+$('hdrWallet').addEventListener('click', onWalletBtn);
+$('addrForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = $('addrInput').value.trim();
+  const ok = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v);
+  $('addrErr').hidden = ok;
+  if (ok){ $('addrInput').value = ''; setWallet(v); }
+});
+
+/* ---- trench chart ---- */
+const cv = $('trench');
+const colr = (() => { const cs = getComputedStyle(document.documentElement); const g = (n) => cs.getPropertyValue(n).trim(); return { dim: g('--dim'), faint: g('--faint'), ice: g('--ice'), bright: g('--bright') }; })();
+function draw(){
+  const rect = cv.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  if (rect.bottom < -50 || rect.top > innerHeight + 50) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const Wd = Math.round(rect.width * dpr), Hd = Math.round(rect.height * dpr);
+  if (cv.width !== Wd || cv.height !== Hd){ cv.width = Wd; cv.height = Hd; }
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width, h = rect.height;
+  c.clearRect(0, 0, w, h);
+  const L = 42, R = 8, Tp = 10, B = 24, pw = w - L - R, ph = h - Tp - B;
+  const D0 = 14, D1 = 34;
+  const y = (d) => Tp + (Math.min(D1, Math.max(D0, d)) - D0) / (D1 - D0) * ph;
+  const x = (t) => L + Math.min(1, Math.max(0, t / CONFIG.roundMs)) * pw;
+  const g = c.createLinearGradient(0, Tp, 0, Tp + ph);
+  g.addColorStop(0, 'rgba(143,220,255,0)'); g.addColorStop(1, 'rgba(60,120,170,0.12)');
+  c.fillStyle = g; c.fillRect(L, Tp, pw, ph);
+  c.fillStyle = 'rgba(143,220,255,0.035)'; c.fillRect(L, y(DIFF), pw, Tp + ph - y(DIFF));
+  c.font = '10.5px "Geist Mono", ui-monospace, Menlo, monospace';
+  c.textBaseline = 'middle';
+  for (let d = 16; d <= 32; d += 4){
+    const yy = Math.round(y(d)) + 0.5;
+    c.strokeStyle = 'rgba(255,255,255,0.045)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(L, yy); c.lineTo(L + pw, yy); c.stroke();
+    c.fillStyle = colr.dim; c.textAlign = 'right'; c.fillText('d' + d, L - 9, yy);
+    if (pw > 300){ c.fillStyle = colr.faint; c.fillText(odds(d), L + pw - 4, yy - 8); }
+  }
+  c.fillStyle = colr.faint;
+  const secs = CONFIG.roundMs / 1000;
+  for (let s = 0; s <= secs; s += secs / 4){
+    c.textAlign = s === 0 ? 'left' : s === secs ? 'right' : 'center';
+    c.fillText(s + 's', x(s * 1000), Tp + ph + 14);
+  }
+  const yd = Math.round(y(DIFF)) + 0.5;
+  c.save(); c.setLineDash([4, 4]); c.strokeStyle = 'rgba(143,220,255,0.55)';
+  c.beginPath(); c.moveTo(L, yd); c.lineTo(L + pw, yd); c.stroke(); c.restore();
+  c.textAlign = 'left'; c.fillStyle = colr.ice;
+  c.fillText('proof line · d' + DIFF, L + 6, yd - 9);
+  for (const p of S.points){ if (p.k !== 'peer') continue; c.fillStyle = 'rgba(110,128,142,0.75)'; c.beginPath(); c.arc(x(p.t), y(p.d), 1.8, 0, 6.283); c.fill(); }
+  c.fillStyle = 'rgba(143,220,255,0.42)';
+  for (const p of S.points){ if (p.k !== 'you') continue; c.beginPath(); c.arc(x(p.t), y(p.d), 1.4, 0, 6.283); c.fill(); }
+  for (const p of S.points){
+    if (p.k !== 'proof') continue;
+    const px = x(p.t), py = y(p.d);
+    c.fillStyle = 'rgba(143,220,255,0.18)'; c.beginPath(); c.arc(px, py, 6, 0, 6.283); c.fill();
+    c.fillStyle = colr.bright; c.beginPath(); c.arc(px, py, 2.6, 0, 6.283); c.fill();
+  }
+  if (S.record.depth){
+    const yr = Math.round(y(S.record.depth)) + 0.5;
+    c.strokeStyle = S.record.holder === 'you' ? 'rgba(242,247,250,0.8)' : 'rgba(242,247,250,0.35)';
+    c.beginPath(); c.moveTo(L, yr); c.lineTo(L + pw, yr); c.stroke();
+    c.fillStyle = S.record.holder === 'you' ? colr.bright : colr.dim;
+    c.textAlign = 'left';
+    c.fillText('record d' + S.record.depth + ' · ' + S.record.holder, L + 6, Math.min(yr + 10, Tp + ph - 6));
+  }
+  const xn = Math.round(x(Date.now() - S.roundStart)) + 0.5;
+  c.strokeStyle = 'rgba(143,220,255,0.35)';
+  c.beginPath(); c.moveTo(xn, Tp); c.lineTo(xn, Tp + ph); c.stroke();
+  if (!S.running){ c.fillStyle = colr.dim; c.textAlign = 'center'; c.fillText('start mining and your hashes land here', L + pw / 2, Tp + 22); }
+}
+
+/* ---- dock ---- */
+const dock = $('dock');
+try {
+  new IntersectionObserver((es) => { dock.classList.toggle('show', !es[0].isIntersecting); }, { threshold: 0 }).observe($('mineBtn'));
+} catch (e) { dock.classList.add('show'); }
+
+/* ---- tick ---- */
+let lastLedger = 0, lastSave = 0;
+function tick(){
+  const now = Date.now();
+  const r = roundOf(now);
+  if (r !== S.round){ newRound(r); Stage.setRecord(0, null); }
+  const dt = Math.min(2, Math.max(0, (now - S.lastTick) / 1000)); S.lastTick = now;
+  if (S.chalWords) simPeers(dt, now);
+  const pn = performance.now();
+  if (pn - S.rateT >= 1000){
+    const inst = S.win * 1000 / (pn - S.rateT);
+    S.rate = S.running ? (S.rate ? S.rate * 0.55 + inst * 0.45 : inst) : 0;
+    S.win = 0; S.rateT = pn; driftPeers();
+  }
+  while (S.proofTimes.length && now - S.proofTimes[0] > 60000) S.proofTimes.shift();
+  const left = Math.max(0, S.roundStart + CONFIG.roundMs - now);
+  const ls = Math.ceil(left / 1000);
+  $('eyeRound').textContent = 'round ' + fmtInt(S.round);
+  $('eyeLeft').textContent = Math.floor(ls / 60) + ':' + String(ls % 60).padStart(2, '0') + ' left';
+  $('roundFill').style.width = (100 - left / CONFIG.roundMs * 100).toFixed(2) + '%';
+  $('rRate').textContent = fmtRate(S.rate);
+  $('rHashes').textContent = big(S.hashesRound);
+  $('rTotal').textContent = big(life.hashes) + ' all time';
+  $('rProofs').textContent = fmtInt(S.you.proofs);
+  $('rCredits').textContent = fmtCredits(S.you.credits) + ' credits';
+  $('rBest').textContent = S.you.best ? 'd' + S.you.best : (life.best ? 'd' + life.best : 'none yet');
+  $('rBestOdds').textContent = S.you.best ? odds(S.you.best) : (life.best ? 'all-time best' : 'start mining');
+  $('dockRate').textContent = fmtRate(S.rate);
+  $('dockProofs').innerHTML = '<b>' + fmtInt(S.you.proofs) + '</b> ' + (S.you.proofs === 1 ? 'proof' : 'proofs');
+  const onPeers = peers.filter((p) => p.on);
+  $('nMiners').textContent = fmtInt(onPeers.length + (S.running ? 1 : 0));
+  $('nRate').textContent = fmtRate(onPeers.reduce((s, p) => s + p.rate, 0) + S.rate);
+  $('nPpm').textContent = fmtInt(S.proofTimes.length);
+  const total = totalCredits();
+  $('wCredits').textContent = fmtCredits(S.you.credits);
+  $('wShare').textContent = (total ? S.you.credits / total * 100 : 0).toFixed(2) + '%';
+  $('wLife').textContent = fmtCredits(life.credits);
+  if (dirty.slab){ dirty.slab = false; renderSlab(); }
+  if (dirty.stream){ dirty.stream = false; renderStream(); }
+  if (now - lastLedger > 450 && (dirty.ledger || S.tab !== 'rounds')){ dirty.ledger = false; lastLedger = now; renderLedger(); }
+  if (now - lastSave > 5000){ lastSave = now; store.set('zeros.life', JSON.stringify(life)); }
+  if (!document.hidden) draw();
+}
+
+renderWallet(); renderMining(); renderStream(); renderLedger();
+setTag(S.wallet || null);
+tick();
+setInterval(tick, 250);
+addEventListener('resize', draw);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+addEventListener('pagehide', () => store.set('zeros.life', JSON.stringify(life)));
+})();
+</script>
+</body>
+</html>
